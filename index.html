@@ -280,6 +280,18 @@
   #log .failed span { color: var(--warn); }
   #log li.empty { display: block; background: none; padding: 4px 0; color: var(--muted); animation: none; }
   .send-row { display: flex; gap: 8px; margin-top: 12px; }
+
+  /* ---- Listening log (test site only) ---------------------------------- */
+  #listenCard[hidden] { display: none; }
+  #listenLog { list-style: none; margin: 0; padding: 0; max-height: 260px; overflow-y: auto; font-size: 13px; }
+  #listenLog li {
+    display: flex; gap: 10px; align-items: baseline; padding: 5px 0;
+    color: var(--muted); border-bottom: 1px solid var(--field-border);
+  }
+  #listenLog li:last-child { border-bottom: 0; }
+  #listenLog time { flex: none; font-variant-numeric: tabular-nums; }
+  #listenLog span { overflow-wrap: anywhere; }
+  #listenLog li.empty { display: block; border: 0; }
   .send-row input { flex: 1; min-width: 0; }
 
   /* ---- Banners --------------------------------------------------------- */
@@ -435,6 +447,12 @@
       <button class="btn primary" type="submit">Send</button>
     </form>
   </section>
+
+  <section id="listenCard" class="card" hidden>
+    <h2>Listening log <span class="badge">TEST SITE ONLY</span></h2>
+    <ul id="listenLog"><li class="empty">Turn on the mic and talk. Each time the browser stops and
+      restarts listening, and any unfinished words that were rescued, show up here.</li></ul>
+  </section>
   </main>
 
   <aside class="card guide" aria-labelledby="guideTitle">
@@ -512,6 +530,8 @@
         It's on unless you switch it off under Settings.</li>
       <li><b>"Six", not "sex".</b> The mic often hears "six" as "sex", so in English that word is now
         posted as six.</li>
+      <li><b>Fewer missed words.</b> If the browser stops listening in the middle of a sentence, the
+        words it already heard are now posted instead of lost, and it starts listening again faster.</li>
     </ul>
 
     <h3>November 13, 2026</h3>
@@ -902,7 +922,31 @@
 
   // ---- Speech recognition ------------------------------------------------
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  let rec = null, wanted = false, retryDelay = 250;
+  let rec = null, wanted = false, retryDelay = 0;
+  let pending = '';            // words heard but not finished into a sentence yet
+  let sentFinals = new Set();  // finished sentences already sent (this session)
+  let startedAt = 0, endedAt = 0;
+
+  // ---- Listening log (test site only) ------------------------------------
+  // Shows when the browser stops and restarts listening, and which unfinished
+  // words were rescued, so missed speech can be tracked down.
+  const listenLog = $('listenLog');
+  if (!isLive) $('listenCard').hidden = false;
+  const seconds = ms => (ms / 1000).toFixed(1) + ' s';
+
+  function note(text) {
+    if (isLive) return;
+    const empty = listenLog.querySelector('.empty');
+    if (empty) empty.remove();
+    const li = document.createElement('li');
+    const time = document.createElement('time');
+    time.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const span = document.createElement('span');
+    span.textContent = text;
+    li.append(time, span);
+    listenLog.prepend(li);
+    while (listenLog.children.length > 60) listenLog.lastChild.remove();
+  }
 
   function setStatus(text, mode) {
     $('statusText').textContent = text;
@@ -931,19 +975,33 @@
     r.continuous = true;
     r.interimResults = true;
 
-    r.onstart = () => setStatus('Listening — just talk', 'live');
+    r.onstart = () => {
+      startedAt = Date.now();
+      pending = '';
+      sentFinals = new Set();
+      note(endedAt ? 'Listening again after a ' + seconds(startedAt - endedAt) + ' gap' : 'Listening started');
+      endedAt = 0;
+      setStatus('Listening — just talk', 'live');
+    };
 
     r.onresult = e => {
-      let interim = '';
       for (let i = e.resultIndex; i < e.results.length; i++) {
-        const result = e.results[i];
-        if (result.isFinal) send(result[0].transcript, true);
-        else interim += result[0].transcript;
+        if (e.results[i].isFinal && !sentFinals.has(i)) {
+          sentFinals.add(i);
+          send(e.results[i][0].transcript, true);
+        }
       }
-      hearing.textContent = tidy(interim, true);
+      // Kept so the words aren't lost if the browser stops listening before
+      // it finishes the sentence.
+      pending = '';
+      for (let i = 0; i < e.results.length; i++) {
+        if (!e.results[i].isFinal) pending += e.results[i][0].transcript;
+      }
+      hearing.textContent = tidy(pending, true);
     };
 
     r.onerror = e => {
+      note('Speech service: ' + e.error);
       switch (e.error) {
         case 'no-speech':
         case 'aborted':
@@ -968,12 +1026,24 @@
       }
     };
 
-    // The browser ends a session after a pause or about a minute; keep going.
+    // The browser stops listening after a pause or about a minute. Post any
+    // unfinished words, then start again straight away so little is missed.
     r.onend = () => {
       hearing.textContent = '';
-      if (!wanted) return;
-      const delay = retryDelay;
-      retryDelay = 250;
+      if (!wanted) { pending = ''; return; }   // turned off: drop them
+      endedAt = Date.now();
+      const ran = startedAt ? endedAt - startedAt : 0;
+      note(startedAt ? 'Browser stopped listening after ' + seconds(ran) : "Listening didn't start");
+      startedAt = 0;
+      if (pending.trim()) {
+        note('Rescued unfinished words: "' + tidy(pending.trim(), true) + '"');
+        send(pending, true);
+      }
+      pending = '';
+      // Wait a moment only if it stops again at once (an error, or another
+      // app using the mic), so it can't restart over and over.
+      const delay = Math.max(retryDelay, ran < 1000 ? 1000 : 0);
+      retryDelay = 0;
       setTimeout(() => {
         if (!wanted) return;
         try { r.start(); } catch (err) { /* already running */ }
@@ -991,6 +1061,7 @@
     if (!rec) rec = createRecognizer();
     rec.lang = langBox.value;
     wanted = true;
+    endedAt = 0;
     updateButton();
     setStatus('Starting…', '');
     $('handedOff').hidden = true;
