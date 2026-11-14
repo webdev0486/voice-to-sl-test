@@ -78,11 +78,11 @@
   .app { min-width: 0; }
 
   /* Wide screens: the how-to guide sits on the left of the app,
-     with "What's new" under it. */
+     and "What's new" goes under the app. */
   @media (min-width: 960px) {
     .layout {
       grid-template-columns: 340px minmax(0, 1fr); grid-template-rows: auto 1fr;
-      grid-template-areas: "guide app" "news app"; align-items: start;
+      grid-template-areas: "guide app" "guide news"; align-items: start;
     }
     .app { grid-area: app; max-width: none; }
     .guide { grid-area: guide; max-width: none; }
