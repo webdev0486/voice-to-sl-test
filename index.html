@@ -74,15 +74,28 @@
   }
   .page { max-width: 1140px; margin: 0 auto; padding: 36px 16px 56px; }
   .layout { display: grid; gap: 0 22px; grid-template-columns: minmax(0, 1fr); }
-  .app, .guide { width: 100%; max-width: 700px; margin-left: auto; margin-right: auto; }
+  .app, .guide, .news { width: 100%; max-width: 700px; margin-left: auto; margin-right: auto; }
   .app { min-width: 0; }
 
-  /* Wide screens: the how-to guide sits on the left of the app. */
+  /* Wide screens: the how-to guide sits on the left of the app,
+     with "What's new" under it. */
   @media (min-width: 960px) {
-    .layout { grid-template-columns: 340px minmax(0, 1fr); grid-template-areas: "guide app"; align-items: start; }
+    .layout {
+      grid-template-columns: 340px minmax(0, 1fr); grid-template-rows: auto 1fr;
+      grid-template-areas: "guide app" "news app"; align-items: start;
+    }
     .app { grid-area: app; max-width: none; }
     .guide { grid-area: guide; max-width: none; }
+    .news { grid-area: news; max-width: none; }
     .app .steps { display: none; }   /* the guide covers these */
+  }
+  /* Very wide screens: "What's new" gets its own column on the right. */
+  @media (min-width: 1280px) {
+    .page { max-width: 1400px; }
+    .layout {
+      grid-template-columns: 340px minmax(0, 1fr) 300px; grid-template-rows: auto;
+      grid-template-areas: "guide app news";
+    }
   }
 
   /* ---- Header ---------------------------------------------------------- */
@@ -279,14 +292,18 @@
   .banner .row input { flex: 1 1 220px; }
 
   /* ---- How-to guide ---------------------------------------------------- */
-  .guide { font-size: 14px; }
-  .guide h2 + h3 { margin-top: 0; }
+  .guide, .news { font-size: 14px; }
+  .guide h2 + h3, .news h2 + h3 { margin-top: 0; }
   .guide h3 { margin: 20px 0 8px; font-size: 15px; font-weight: 700; }
   .guide p { margin: 0 0 8px; color: var(--muted); }
-  .guide ul, .guide ol { margin: 0 0 8px; padding-left: 20px; }
-  .guide li { margin-bottom: 6px; color: var(--muted); }
+  .guide ul, .guide ol, .news ul { margin: 0 0 8px; padding-left: 20px; }
+  .guide li, .news li { margin-bottom: 6px; color: var(--muted); }
   .guide ol li::marker { color: var(--accent); font-weight: 700; }
-  .guide b { color: var(--text); }
+  .guide b, .news b { color: var(--text); }
+
+  /* ---- What's new ------------------------------------------------------ */
+  .news h3 { margin: 18px 0 8px; font-size: 13px; font-weight: 700; color: var(--accent); }
+  .news li::marker { color: var(--accent); }
   .menu { display: grid; grid-template-columns: auto 1fr; gap: 8px 10px; margin: 0; align-items: baseline; }
   .menu dt {
     font-size: 12px; font-weight: 700; white-space: nowrap; text-align: center;
@@ -481,6 +498,26 @@
         <li>Only click <b>Use this prim</b> for links from your own prim.</li>
       </ul>
     </div>
+  </aside>
+
+  <aside class="card news" aria-labelledby="newsTitle">
+    <h2 id="newsTitle">What's new</h2>
+
+    <h3>November 14, 2026</h3>
+    <ul>
+      <li><b>Hide bad words.</b> Swear words are taken out of your lines or swapped for clean ones
+        (<i>hell</i> &rarr; <i>heck</i>), so they never reach chat. It's on unless you switch it off
+        under Settings.</li>
+      <li><b>"Six", not "sex".</b> The mic often hears "six" as "sex", so in English that word is now
+        posted as six.</li>
+    </ul>
+
+    <h3>November 13, 2026</h3>
+    <ul>
+      <li><b>New look</b> with a big round <b>Turn On Mic</b> button, and light and dark themes that
+        follow your computer's setting.</li>
+      <li><b>How to use</b> guide right on the page.</li>
+    </ul>
   </aside>
   </div>
 
