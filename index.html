@@ -424,6 +424,16 @@
     </div>
   </div>
 
+  <section class="card">
+    <label for="url">Prim address</label>
+    <input id="url" type="text" spellcheck="false" autocomplete="off"
+           placeholder="Filled in by the link from your prim, or paste it here">
+    <p id="dest" class="hint dest" hidden>&check; Sending to the prim worn by <b id="destWho"></b>.</p>
+    <p class="hint">When you change regions your prim gives you a new link. Click it, and a tab
+      that's already listening switches to the new address by itself.
+      Touch the prim &rarr; <b>Get Link</b> to see the link again.</p>
+  </section>
+
   <section class="card mic-card">
     <button id="mic" type="button" aria-pressed="false">
       <span class="mic-circle">
@@ -464,15 +474,7 @@
 
   <section class="card">
     <h2>Settings</h2>
-    <label for="url">Prim address</label>
-    <input id="url" type="text" spellcheck="false" autocomplete="off"
-           placeholder="Filled in by the link from your prim, or paste it here">
-    <p id="dest" class="hint dest" hidden>&check; Sending to the prim worn by <b id="destWho"></b>.</p>
-    <p class="hint">When you change regions your prim gives you a new link. Click it, and a tab
-      that's already listening switches to the new address by itself.
-      Touch the prim &rarr; <b>Get Link</b> to see the link again.</p>
-
-    <label for="lang" class="field-gap">Language</label>
+    <label for="lang">Language</label>
     <select id="lang" aria-describedby="langHint">
       <option value="en-US">English (US)</option>
       <option value="en-GB">English (UK)</option>
@@ -611,6 +613,7 @@
         speak, and nothing is translated.</li>
       <li><b>Talking tips</b> (below this list) for clearer results, including help for people whose
         first language isn't English.</li>
+      <li><b>Prim address</b> now sits at the top, above the mic button.</li>
     </ul>
 
     <h3>November 13, 2026</h3>
