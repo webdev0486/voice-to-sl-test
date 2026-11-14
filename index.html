@@ -252,6 +252,7 @@
   .switch input:checked { background: linear-gradient(145deg, var(--accent), var(--accent-2)); }
   .switch input:checked::after { transform: translateX(18px); }
   .switch input:focus-visible { outline: 3px solid var(--accent-soft); outline-offset: 2px; }
+  .switch-hint { margin-top: 4px; padding-left: 54px; }
 
   /* ---- Chat log -------------------------------------------------------- */
   #log { list-style: none; margin: 0; padding: 0; max-height: 320px; overflow-y: auto; }
@@ -403,6 +404,9 @@
       <option value="zh-CN">中文 (普通话)</option>
     </select>
     <label class="switch"><input id="cap" type="checkbox" checked> Start each line with a capital letter</label>
+    <label class="switch"><input id="clean" type="checkbox" checked> Hide bad words</label>
+    <p class="hint switch-hint">Swear words are taken out of your lines or swapped for clean ones
+      (<i>hell</i> &rarr; <i>heck</i>), so they never reach chat. Works when the language is English.</p>
   </section>
 
   <section class="card">
@@ -438,6 +442,11 @@
     <h3>After a teleport</h3>
     <p>In a new region the prim gives you a new link. Click it, and your open page switches over
       by itself. You can close the extra tab.</p>
+
+    <h3>Clean chat</h3>
+    <p><b>Hide bad words</b> is on unless you switch it off under Settings. Swear words are removed,
+      or swapped for clean ones like <i>heck</i>, <i>darn</i> or <i>jerk</i> so your sentences still read well.</p>
+    <p>The mic often hears "six" as "sex", so in English that word is always posted as <b>six</b>.</p>
 
     <h3>Prim menu (touch the prim)</h3>
     <dl class="menu">
@@ -485,7 +494,7 @@
 <script>
 (() => {
   const $ = id => document.getElementById(id);
-  const urlBox = $('url'), langBox = $('lang'), capBox = $('cap'), micBtn = $('mic');
+  const urlBox = $('url'), langBox = $('lang'), capBox = $('cap'), cleanBox = $('clean'), micBtn = $('mic');
   const log = $('log'), hearing = $('hearing');
 
   // The live site and test copies share one web origin (webdev0486.github.io),
@@ -567,6 +576,7 @@
     if (url) setAddress(url);
   });
   capBox.addEventListener('change', () => store.set('cap', capBox.checked ? '1' : '0'));
+  cleanBox.addEventListener('change', () => store.set('clean', cleanBox.checked ? '1' : '0'));
 
   // ---- Chat log ----------------------------------------------------------
   function addLog(text) {
@@ -588,11 +598,191 @@
     li.querySelector('span').textContent += ' — not sent (' + why + ')';
   }
 
+  // ---- Clean chat --------------------------------------------------------
+  // English only. A bad word is swapped for a clean one so the sentence still
+  // reads well ("hell" -> "heck"), or removed when it only adds emphasis
+  // ("that's fucking great" -> "that's great"). Slurs and sexual words are
+  // always removed. Whole words only, so "class" or "hello" are never touched.
+  const english = () => /^en/i.test(langBox.value);
+  const B = '(?<![\\p{L}\\p{N}])', E = '(?![\\p{L}\\p{N}])';
+
+  // Keeps the case of what was said: "Fuck" -> "Frick", "FUCK" -> "FRICK".
+  function matchCase(src, out) {
+    const letters = src.replace(/[^\p{L}]/gu, '');
+    if (letters.length > 1 && letters === letters.toUpperCase() && letters !== letters.toLowerCase()) {
+      return out.toUpperCase();
+    }
+    const first = letters.charAt(0);
+    return first && first !== first.toLowerCase() ? out.charAt(0).toUpperCase() + out.slice(1) : out;
+  }
+
+  // Word -> what to post instead: a clean word, '' to remove it, null to
+  // keep it, or a function that decides from the words next to it.
+  const WORDS = new Map();
+  function addWords(list, rule) {
+    for (const item of list.trim().split(/\s+/)) {
+      const [word, swap] = item.split('=');
+      WORDS.set(word, rule !== undefined ? rule : swap.replace(/_/g, ' '));
+    }
+  }
+  const emphasis = alt => (prev, next) => next ? '' : alt;   // "so fucking good" -> "so good"
+  const INSULT = new Set(['a', 'an', 'you', 'such', 'total', 'real', 'little', 'absolute', 'complete']);
+  const insult = (alt, otherwise) => prev => INSULT.has(prev) ? alt : otherwise;
+  const STUFF = new Set(['the', 'this', 'that', 'these', 'those', 'my', 'your', 'his', 'her', 'its', 'our',
+    'their', 'some', 'any', 'no', 'all', 'of', 'much', 'more', 'enough', 'own', 'good', 'bad', 'cool',
+    'weird', 'crazy', 'same', 'other', 'real']);
+  const JUNK = new Set(['is', 'was', 'are', 'were', 'be', 'been', 'like', 'looks', 'smells', 'sounds', 'feel', 'feels']);
+  // "Shit!" -> "Shoot!", "my shit" -> "my stuff", "that's shit" -> "that's junk"
+  const shit = (prev, next, tail) =>
+    tail ? 'stuff' : JUNK.has(prev) || /'(s|re)$/.test(prev) ? 'junk' : STUFF.has(prev) ? 'stuff' : 'shoot';
+
+  // Listed most common first: a word the speech service already starred out
+  // ("f***") is matched to the first word here that fits.
+  addWords('fucking fuckin fucken motherfucking motherfuckin', emphasis('freaking'));
+  addWords('fuck=frick fucks=fricks fucked=screwed fucker=jerk fuckers=jerks motherfucker=jerk ' +
+    'motherfuckers=jerks fuckhead=jerk fuckheads=jerks fuckface=jerk fuckwit=jerk fuckup=screwup ' +
+    'fuckups=screwups fuckload=ton clusterfuck=mess mofo=jerk fck=frick fuk=frick');
+  addWords('shit', shit);
+  addWords('shits=stuff shitty=crummy shitting=kidding shithead=jerk shitheads=jerks shithole=dump ' +
+    'shitload=ton shitton=ton shitstorm=mess shitshow=mess dipshit=jerk dipshits=jerks bullshit=nonsense ' +
+    'bullshitting=kidding horseshit=nonsense');
+  addWords('bitch=jerk bitches=jerks bitching=complaining bitched=complained bitchy=grumpy');
+  addWords('ass=butt asses=butts asshole=jerk assholes=jerks asshat=jerk asswipe=jerk dumbass=dummy ' +
+    'jackass=jerk smartass=smarty badass=tough kickass=awesome arse=butt arsehole=jerk arseholes=jerks');
+  addWords('cunt=jerk cunts=jerks bastard=jerk bastards=jerks twat=jerk twats=jerks wanker=jerk ' +
+    'wankers=jerks dickhead=jerk dickheads=jerks cocksucker=jerk cocksuckers=jerks douche=jerk ' +
+    'douchebag=jerk douchebags=jerks');
+  addWords('dick', insult('jerk', ''));
+  addWords('dicks', insult('jerks', ''));
+  addWords('prick', insult('jerk', null));
+  addWords('pricks', insult('jerks', null));
+  addWords('pussy', insult('wimp', ''));
+  addWords('pussies', insult('wimps', ''));
+  addWords('goddamn goddamned goddam', emphasis('darn'));
+  addWords('damn=darn damned=darned dammit=darn_it damnit=darn_it goddammit=darn_it goddamnit=darn_it ' +
+    'hell=heck hellhole=dump crap=crud crappy=cruddy piss=pee pissed=mad pissing=peeing pisses=pees ' +
+    'bugger=darn bollocks=nonsense');
+  addWords('wank wanks wanking wanked cock cocks slut sluts slutty whore whores cum cumming cumshot jizz ' +
+    'porn porno dildo dildos blowjob blowjobs handjob handjobs boner boners tits titty titties boob boobs ' +
+    'boobies nigger niggers nigga niggas niggaz faggot faggots fag fags retard retards retarded tard spic ' +
+    'spics kike kikes chink chinks tranny trannies dyke dykes coon coons wetback wetbacks gook gooks ' +
+    'raghead ragheads towelhead towelheads beaner beaners', '');
+  addWords('wtf=what_the_heck stfu=shut_up omfg=omg lmfao=lmao');
+
+  // Two spoken words that make one bad word: "mother fucker", "bull shit".
+  const JOIN = new RegExp(B + '(mother|bull|horse|dip|god|ass|dumb|jack|smart|dick|shit|fuck)[ -]' +
+    '(fuck|shit|damn|hole|ass|head|ton|load|face|wit|storm|show)', 'giu');
+  const JOINED = new Set(['motherfuck', 'bullshit', 'horseshit', 'dipshit', 'goddamn', 'asshole', 'dumbass',
+    'jackass', 'smartass', 'dickhead', 'shithead', 'shithole', 'shitton', 'shitload', 'shitstorm', 'shitshow',
+    'fuckface', 'fuckhead', 'fuckwit']);
+
+  // Whole sayings that read better swapped together.
+  const PHRASES = [
+    ['son of a bitch', 'son of a gun'],
+    ['go fuck yourself|eat shit|suck my (?:dick|cock|balls|ass)', 'get lost'],
+    ['(?:fuck|piss|bugger) off', 'go away'],
+    ['the fuck', 'the heck'],
+    ['(?:fucking|fuckin|bloody) hell', 'heck'],
+    ["for fuck(?:'?s)? sake", "for Pete's sake"],
+    ['holy (?:shit|fuck|crap)', 'holy cow'],
+    ['oh (?:shit|fuck|crap)', 'oh no'],
+    ['no shit', 'no way'],
+    ['full of (?:shit|crap)', 'full of it'],
+    ['piece of (?:shit|crap)', 'piece of junk'],
+    ['shit happens', 'stuff happens'],
+    ['goddamn it', 'darn it'],
+    ['(give|gives|gave|giving|given) a (?:fuck|shit|damn|crap)',
+      g => ({ give: 'care', gives: 'cares', gave: 'cared', giving: 'caring', given: 'cared' })[g[1].toLowerCase()]],
+    ['fuck(s|ed|ing|in)? (up|around|with)',
+      g => ({ '': 'mess', s: 'messes', ed: 'messed', ing: 'messing', in: 'messing' })[(g[1] || '').toLowerCase()] + ' ' + g[2]],
+    ['piss(es|ed|ing)? (me|him|her|them|you|us) off',
+      g => ({ '': 'bug', es: 'bugs', ed: 'bugged', ing: 'bugging' })[(g[1] || '').toLowerCase()] + ' ' + g[2]],
+    ['pissed off', 'ticked off'],
+    ['fuck (you|u|ya|this|that|it|him|her|them)', 'forget $1']
+  ].map(([words, swap]) => [new RegExp(B + '(?:' + words.replace(/ /g, '\\s+') + ')' + E, 'giu'), swap]);
+
+  // A word the speech service already starred out, like "f***" or "a**hole".
+  const MASKED = /[\p{L}\p{N}]*\*{2,}[\p{L}\p{N}*]*/gu;
+  function unmask(masked) {
+    if (!/\p{L}/u.test(masked)) return '';
+    const fits = new RegExp('^' + masked.toLowerCase().replace(/\*/g, '.') + '$', 'u');
+    for (const word of WORDS.keys()) if (fits.test(word)) return word;
+    return '';
+  }
+
+  const TOKEN = /([\p{L}\p{N}]*\*{2,}[\p{L}\p{N}*]*|[\p{L}\p{N}]+(?:'[\p{L}\p{N}]+)*'?)/u;
+  // The word right before (step -1) or after (step 1) a word, if only a space is between.
+  function near(parts, i, step) {
+    const j = i + step * 2;
+    return j > 0 && j < parts.length && parts[j] && /^\s+$/.test(parts[i + step]) ? parts[j].toLowerCase() : '';
+  }
+
+  function cleanLine(text) {
+    let t = text.replace(/[‘’]/g, "'")
+      .replace(MASKED, m => { const w = unmask(m); return w ? matchCase(m, w) : m; })
+      .replace(JOIN, (m, a, b) => JOINED.has((a + b).toLowerCase()) ? a + b : m);
+    for (const [re, swap] of PHRASES) {
+      t = t.replace(re, (m, ...rest) => {
+        const g = [m, ...rest.slice(0, -2)];
+        const out = typeof swap === 'function' ? swap(g) : swap.replace(/\$(\d)/g, (x, n) => g[n] || '');
+        return matchCase(m, out);
+      });
+    }
+    const parts = t.split(TOKEN);   // words sit at the odd places
+    let removed = false;
+    for (let i = 1; i < parts.length; i += 2) {
+      const token = parts[i];
+      const cut = token.indexOf("'");
+      const word = cut > 0 ? token.slice(0, cut) : token;
+      const tail = cut > 0 && cut < token.length - 1 ? token.slice(cut) : '';   // "'s", "'re"...
+      const key = word.toLowerCase();
+      const masked = key.includes('*');   // starred out and not recognised
+      if (!masked && !WORDS.has(key)) continue;
+      const prev = near(parts, i, -1), next = near(parts, i, 1);
+      const rule = masked ? '' : WORDS.get(key);
+      const out = typeof rule === 'function' ? rule(prev, next, tail) : rule;
+      if (out === null) continue;
+      if (out) {
+        parts[i] = matchCase(word, out) + tail;
+        if (prev === 'a' || prev === 'an') {   // "an asshole" -> "a jerk"
+          parts[i - 2] = matchCase(parts[i - 2], /^[aeiou]/i.test(out) ? 'an' : 'a');
+        }
+      } else {
+        parts[i] = '';
+        removed = true;
+        if (!next && (prev === 'a' || prev === 'an' || prev === 'the')) parts[i - 2] = '';
+      }
+    }
+    t = parts.join('');
+    if (removed) {
+      t = t.replace(/\s+/g, ' ')
+        .replace(/ ([,.!?;:])/g, '$1')
+        .replace(/[,;:]+(?=[,.!?;:]| *$)/g, '')
+        .replace(/^[ ,;:.!?]+/, '');
+    }
+    return t.trim();
+  }
+
+  // The mic often hears "six" as "sex"; the speech service can't tell them apart.
+  const SEX = new RegExp(B + 'sex' + E, 'giu');
+
+  function tidy(text, spoken) {
+    if (!english()) return text;
+    if (spoken) text = text.replace(SEX, m => matchCase(m, 'six'));
+    return cleanBox.checked ? cleanLine(text) : text;
+  }
+
   // ---- Sending to the prim -----------------------------------------------
   let queue = Promise.resolve();   // keeps lines in the order they were spoken
 
-  function send(raw) {
-    let text = raw.trim().replace(/\s+/g, ' ');
+  function send(raw, spoken) {
+    const said = raw.trim().replace(/\s+/g, ' ');
+    if (!said) return;
+    let text = tidy(said, spoken);
+    if (!/[\p{L}\p{N}]/u.test(text) && /[\p{L}\p{N}]/u.test(said)) {
+      markFailed(addLog('(hidden)'), 'only bad words');
+      return;
+    }
     if (!text) return;
     if (capBox.checked) text = text.charAt(0).toUpperCase() + text.slice(1);
     const item = addLog(text);
@@ -649,10 +839,10 @@
       let interim = '';
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const result = e.results[i];
-        if (result.isFinal) send(result[0].transcript);
+        if (result.isFinal) send(result[0].transcript, true);
         else interim += result[0].transcript;
       }
-      hearing.textContent = interim;
+      hearing.textContent = tidy(interim, true);
     };
 
     r.onerror = e => {
@@ -781,6 +971,7 @@
   const savedLang = store.get('lang', navigator.language);
   langBox.value = [...langBox.options].some(o => o.value === savedLang) ? savedLang : 'en-US';
   capBox.checked = store.get('cap', '1') === '1';
+  cleanBox.checked = store.get('clean', '1') === '1';
 
   if (!SR) {
     $('unsupported').hidden = false;
