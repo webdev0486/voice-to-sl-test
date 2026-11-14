@@ -422,8 +422,9 @@
     </select>
     <label class="switch"><input id="cap" type="checkbox" checked> Start each line with a capital letter</label>
     <label class="switch"><input id="clean" type="checkbox" checked> Hide bad words</label>
-    <p class="hint switch-hint">Swear words are taken out of your lines or swapped for clean ones
-      (<i>hell</i> &rarr; <i>heck</i>), so they never reach chat. Works when the language is English.</p>
+    <p class="hint switch-hint">Swear words and rude, sexual, violent or drug words are taken out of
+      your lines or swapped for clean ones (<i>hell</i> &rarr; <i>heck</i>), so they never reach chat.
+      Works when the language is English.</p>
   </section>
 
   <section class="card">
@@ -461,8 +462,9 @@
       by itself. You can close the extra tab.</p>
 
     <h3>Clean chat</h3>
-    <p><b>Hide bad words</b> is on unless you switch it off under Settings. Swear words are removed,
-      or swapped for clean ones like <i>heck</i>, <i>darn</i> or <i>jerk</i> so your sentences still read well.</p>
+    <p><b>Hide bad words</b> is on unless you switch it off under Settings. Swear words and rude,
+      sexual, violent or drug words are removed, or swapped for clean ones like <i>heck</i>,
+      <i>darn</i> or <i>jerk</i> so your sentences still read well.</p>
     <p>The mic often hears "six" as "sex", so in English that word is always posted as <b>six</b>.</p>
 
     <h3>Prim menu (touch the prim)</h3>
@@ -505,9 +507,9 @@
 
     <h3>November 14, 2026</h3>
     <ul>
-      <li><b>Hide bad words.</b> Swear words are taken out of your lines or swapped for clean ones
-        (<i>hell</i> &rarr; <i>heck</i>), so they never reach chat. It's on unless you switch it off
-        under Settings.</li>
+      <li><b>Hide bad words.</b> Swear words and rude, sexual, violent or drug words are taken out of
+        your lines or swapped for clean ones (<i>hell</i> &rarr; <i>heck</i>), so they never reach chat.
+        It's on unless you switch it off under Settings.</li>
       <li><b>"Six", not "sex".</b> The mic often hears "six" as "sex", so in English that word is now
         posted as six.</li>
     </ul>
@@ -638,8 +640,10 @@
   // ---- Clean chat --------------------------------------------------------
   // English only. A bad word is swapped for a clean one so the sentence still
   // reads well ("hell" -> "heck"), or removed when it only adds emphasis
-  // ("that's fucking great" -> "that's great"). Slurs and sexual words are
-  // always removed. Whole words only, so "class" or "hello" are never touched.
+  // ("that's fucking great" -> "that's great"). Slurs, sexual words, hate
+  // words and drug words are always removed; threats and self-harm phrases
+  // are swapped ("kill yourself" -> "get lost"). Whole words only, so
+  // "class" or "hello" are never touched.
   const english = () => /^en/i.test(langBox.value);
   const B = '(?<![\\p{L}\\p{N}])', E = '(?![\\p{L}\\p{N}])';
 
@@ -699,24 +703,51 @@
   addWords('damn=darn damned=darned dammit=darn_it damnit=darn_it goddammit=darn_it goddamnit=darn_it ' +
     'hell=heck hellhole=dump crap=crud crappy=cruddy piss=pee pissed=mad pissing=peeing pisses=pees ' +
     'bugger=darn bollocks=nonsense');
+  addWords('effing', emphasis('freaking'));
+  addWords("biatch=jerk beyotch=jerk jackoff=jerk jerkoff=jerk dumbfuck=dummy dickwad=jerk dickweed=jerk " +
+    "fatass=jerk lardass=jerk scumbag=jerk bullcrap=nonsense");
+  // Sexual words
   addWords('wank wanks wanking wanked cock cocks slut sluts slutty whore whores cum cumming cumshot jizz ' +
     'porn porno dildo dildos blowjob blowjobs handjob handjobs boner boners tits titty titties boob boobs ' +
-    'boobies nigger niggers nigga niggas niggaz faggot faggots fag fags retard retards retarded tard spic ' +
-    'spics kike kikes chink chinks tranny trannies dyke dykes coon coons wetback wetbacks gook gooks ' +
-    'raghead ragheads towelhead towelheads beaner beaners', '');
-  addWords('wtf=what_the_heck stfu=shut_up omfg=omg lmfao=lmao');
+    'boobies sex sexy sexier sexiest sexual sexually sext sexts sexting nude nudes nudity naked horny ' +
+    'orgasm orgasms penis penises vagina vaginas anal anus nipple nipples testicles semen clit clitoris ' +
+    'erection erections erotic masturbate masturbating masturbation fap fapping hentai nsfw pornhub ' +
+    'onlyfans milf milfs vibrator vibrators condom condoms viagra threesome foreplay fetish bondage bdsm ' +
+    'hooker hookers prostitute prostitutes stripper strippers rape raped rapes raping rapist rapists ' +
+    'molest molested molester molesters molesting pedo pedos pedophile pedophiles paedophile paedophiles ' +
+    'incest humping grope groped groping thot thots hoe hoes skank skanks slag slags', '');
+  // Slurs and hate words
+  addWords('nigger niggers nigga niggas niggaz negro negroes faggot faggots fag fags homo homos lesbo ' +
+    'lesbos shemale retard retards retarded tard spaz spastic spic spics kike kikes chink chinks jap japs ' +
+    'paki pakis tranny trannies dyke dykes coon coons wetback wetbacks gook gooks raghead ragheads ' +
+    'towelhead towelheads beaner beaners redskin redskins honky nazi nazis heil kkk', '');
+  // Drug words and self-harm
+  addWords('weed marijuana cannabis kush ganja doobie stoner stoners bong bongs cocaine heroin meth ' +
+    'methhead crackhead crackheads mdma lsd shrooms fentanyl ketamine opium suicide suicidal kms', '');
+  // Chat shorthand
+  addWords("wtf=what_the_heck stfu=shut_up gtfo=go_away ffs=for_Pete's_sake kys=get_lost omfg=omg lmfao=lmao");
+  addWords('af', '');   // "cool af" -> "cool"
 
   // Two spoken words that make one bad word: "mother fucker", "bull shit".
-  const JOIN = new RegExp(B + '(mother|bull|horse|dip|god|ass|dumb|jack|smart|dick|shit|fuck)[ -]' +
-    '(fuck|shit|damn|hole|ass|head|ton|load|face|wit|storm|show)', 'giu');
+  const JOIN = new RegExp(B + '(mother|bull|horse|dip|god|ass|dumb|jack|smart|dick|shit|fuck|fat|lard|blow|hand)[ -]' +
+    '(fuck|shit|damn|hole|ass|head|ton|load|face|wit|storm|show|job)', 'giu');
   const JOINED = new Set(['motherfuck', 'bullshit', 'horseshit', 'dipshit', 'goddamn', 'asshole', 'dumbass',
     'jackass', 'smartass', 'dickhead', 'shithead', 'shithole', 'shitton', 'shitload', 'shitstorm', 'shitshow',
-    'fuckface', 'fuckhead', 'fuckwit']);
+    'fuckface', 'fuckhead', 'fuckwit', 'dumbfuck', 'fatass', 'lardass', 'blowjob', 'handjob']);
 
-  // Whole sayings that read better swapped together.
+  // Whole sayings that read better swapped together ('' removes them).
   const PHRASES = [
     ['son of a bitch', 'son of a gun'],
-    ['go fuck yourself|eat shit|suck my (?:dick|cock|balls|ass)', 'get lost'],
+    ['go fuck yourself|eat shit|(?:go )?suck (?:a |my )?(?:dick|cock|balls|ass)', 'get lost'],
+    ['(?:go )?(?:kill|hang|neck) (?:yourself|yourselves|urself|ur self|your self)|' +
+      '(?:go )?die in a (?:fire|hole|ditch)|go die|drop dead', 'get lost'],
+    ['kill(s|ed|ing)? (?:myself|my self)',
+      g => ({ '': 'scream', s: 'screams', ed: 'screamed', ing: 'screaming' })[(g[1] || '').toLowerCase()]],
+    ['(?:kill|shoot|stab|murder) (?:you|u)', 'get you'],
+    ['slit (?:your|my|ur|his|her|their) wrists?', ''],
+    ['(?:jerk|jack)(?:s|ed|ing|in)? off', ''],
+    ['(?:smoke|smokes|smoking|smoked) (?:pot|weed|crack|a joint|a blunt|joints|blunts)', ''],
+    ['screw (you|u|ya|this|that|it|him|her|them)', 'forget $1'],
     ['(?:fuck|piss|bugger) off', 'go away'],
     ['the fuck', 'the heck'],
     ['(?:fucking|fuckin|bloody) hell', 'heck'],
@@ -758,15 +789,16 @@
     let t = text.replace(/[‘’]/g, "'")
       .replace(MASKED, m => { const w = unmask(m); return w ? matchCase(m, w) : m; })
       .replace(JOIN, (m, a, b) => JOINED.has((a + b).toLowerCase()) ? a + b : m);
+    let removed = false;
     for (const [re, swap] of PHRASES) {
       t = t.replace(re, (m, ...rest) => {
         const g = [m, ...rest.slice(0, -2)];
         const out = typeof swap === 'function' ? swap(g) : swap.replace(/\$(\d)/g, (x, n) => g[n] || '');
+        if (!out) removed = true;
         return matchCase(m, out);
       });
     }
     const parts = t.split(TOKEN);   // words sit at the odd places
-    let removed = false;
     for (let i = 1; i < parts.length; i += 2) {
       const token = parts[i];
       const cut = token.indexOf("'");
