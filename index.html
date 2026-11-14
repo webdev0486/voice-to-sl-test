@@ -438,6 +438,31 @@
   </section>
 
   <section class="card">
+    <h2>My word fixes</h2>
+    <p class="hint intro">Does the mic keep getting a word wrong for you? Click <b>Say the word</b> and say it, so
+      the page learns how the mic hears it. Then type how it should be spelled and click <b>Add</b>. Handy for
+      names, Second Life words, and words your accent makes hard to hear.</p>
+    <ul id="fixList"></ul>
+    <div class="fix-say">
+      <button id="fixSay" class="btn" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><path d="M12 18v4"/></svg>
+        <span id="fixSayLabel">Say the word</span>
+      </button>
+      <span id="fixStatus" class="hint" aria-live="polite">Click, then say the word the mic gets wrong.</span>
+    </div>
+    <form id="fixForm" class="fix-row">
+      <input id="fixFrom" type="text" maxlength="40" spellcheck="false" autocomplete="off"
+             placeholder="It hears… (sheep)" aria-label="What the mic hears">
+      <span class="fix-arrow" aria-hidden="true">&rarr;</span>
+      <input id="fixTo" type="text" maxlength="40" spellcheck="false" autocomplete="off"
+             placeholder="I meant… (ship)" aria-label="What you meant">
+      <button class="btn primary" type="submit">Add</button>
+    </form>
+    <p class="hint">You can also type in "It hears" yourself. Fixes only change what the mic hears, not what
+      you type. Leave "I meant" empty to just remove the word. Your fixes are saved in this browser.</p>
+  </section>
+
+  <section class="card">
     <h2>Settings</h2>
     <label for="url">Prim address</label>
     <input id="url" type="text" spellcheck="false" autocomplete="off"
@@ -482,31 +507,6 @@
     <p class="hint switch-hint">Swear words and rude, sexual, violent or drug words are taken out of
       your lines or swapped for clean ones (<i>hell</i> &rarr; <i>heck</i>), so they never reach chat.
       Works when the language is English.</p>
-  </section>
-
-  <section class="card">
-    <h2>My word fixes</h2>
-    <p class="hint intro">Does the mic keep getting a word wrong for you? Click <b>Say the word</b> and say it, so
-      the page learns how the mic hears it. Then type how it should be spelled and click <b>Add</b>. Handy for
-      names, Second Life words, and words your accent makes hard to hear.</p>
-    <ul id="fixList"></ul>
-    <div class="fix-say">
-      <button id="fixSay" class="btn" type="button">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><path d="M12 18v4"/></svg>
-        <span id="fixSayLabel">Say the word</span>
-      </button>
-      <span id="fixStatus" class="hint" aria-live="polite">Click, then say the word the mic gets wrong.</span>
-    </div>
-    <form id="fixForm" class="fix-row">
-      <input id="fixFrom" type="text" maxlength="40" spellcheck="false" autocomplete="off"
-             placeholder="It hears… (sheep)" aria-label="What the mic hears">
-      <span class="fix-arrow" aria-hidden="true">&rarr;</span>
-      <input id="fixTo" type="text" maxlength="40" spellcheck="false" autocomplete="off"
-             placeholder="I meant… (ship)" aria-label="What you meant">
-      <button class="btn primary" type="submit">Add</button>
-    </form>
-    <p class="hint">You can also type in "It hears" yourself. Fixes only change what the mic hears, not what
-      you type. Leave "I meant" empty to just remove the word. Your fixes are saved in this browser.</p>
   </section>
 
   <section class="card">
