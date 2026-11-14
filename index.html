@@ -1,0 +1,809 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Talk into your microphone and your words appear in Second Life local chat.">
+<meta name="theme-color" content="#f4f5fb" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0b0d17" media="(prefers-color-scheme: dark)">
+<title>Voice to SL</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎤</text></svg>">
+<style>
+  :root {
+    --bg: #f4f5fb;
+    --glow-1: rgba(109, 92, 255, .16);
+    --glow-2: rgba(59, 130, 246, .12);
+    --card: rgba(255, 255, 255, .82);
+    --card-border: rgba(20, 22, 40, .08);
+    --text: #14162a;
+    --muted: #5d6178;
+    --field: #f6f7fc;
+    --field-border: #dfe2ee;
+    --accent: #6d5cff;
+    --accent-2: #3b82f6;
+    --accent-soft: rgba(109, 92, 255, .12);
+    --accent-glow: rgba(109, 92, 255, .45);
+    --on-accent: #ffffff;
+    --live: #f43f5e;
+    --live-2: #fb7185;
+    --live-soft: rgba(244, 63, 94, .10);
+    --live-glow: rgba(244, 63, 94, .45);
+    --ok: #15803d;
+    --warn: #c2410c;
+    --warn-soft: rgba(234, 88, 12, .10);
+    --shadow: 0 1px 2px rgba(20, 22, 40, .04), 0 10px 30px rgba(20, 22, 40, .07);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0b0d17;
+      --glow-1: rgba(139, 123, 255, .20);
+      --glow-2: rgba(79, 141, 255, .14);
+      --card: rgba(23, 26, 43, .72);
+      --card-border: rgba(255, 255, 255, .07);
+      --text: #eceefb;
+      --muted: #9aa0bd;
+      --field: rgba(255, 255, 255, .04);
+      --field-border: rgba(255, 255, 255, .11);
+      --accent: #8b7bff;
+      --accent-2: #4f8dff;
+      --accent-soft: rgba(139, 123, 255, .16);
+      --accent-glow: rgba(139, 123, 255, .50);
+      --live: #ff5577;
+      --live-2: #ff8aa0;
+      --live-soft: rgba(255, 85, 119, .12);
+      --live-glow: rgba(255, 85, 119, .50);
+      --ok: #4ade80;
+      --warn: #fdba74;
+      --warn-soft: rgba(251, 146, 60, .12);
+      --shadow: 0 1px 0 rgba(255, 255, 255, .03) inset, 0 14px 36px rgba(0, 0, 0, .35);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    color: var(--text);
+    background:
+      radial-gradient(900px 520px at 8% -12%, var(--glow-1), transparent 62%),
+      radial-gradient(760px 480px at 108% 6%, var(--glow-2), transparent 60%),
+      var(--bg);
+    background-attachment: fixed;
+    font: 15px/1.55 "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .page { max-width: 1140px; margin: 0 auto; padding: 36px 16px 56px; }
+  .layout { display: grid; gap: 0 22px; grid-template-columns: minmax(0, 1fr); }
+  .app, .guide { width: 100%; max-width: 700px; margin-left: auto; margin-right: auto; }
+  .app { min-width: 0; }
+
+  /* Wide screens: the how-to guide sits on the left of the app. */
+  @media (min-width: 960px) {
+    .layout { grid-template-columns: 340px minmax(0, 1fr); grid-template-areas: "guide app"; align-items: start; }
+    .app { grid-area: app; max-width: none; }
+    .guide { grid-area: guide; max-width: none; }
+    .app .steps { display: none; }   /* the guide covers these */
+  }
+
+  /* ---- Header ---------------------------------------------------------- */
+  .top { display: flex; gap: 14px; align-items: center; margin-bottom: 22px; }
+  .logo {
+    flex: none; display: grid; place-items: center;
+    width: 48px; height: 48px; border-radius: 14px; color: var(--on-accent);
+    background: linear-gradient(145deg, var(--accent), var(--accent-2));
+    box-shadow: 0 8px 20px -6px var(--accent-glow);
+  }
+  .logo svg { width: 24px; height: 24px; }
+  h1 { margin: 0; font-size: 26px; line-height: 1.15; font-weight: 750; letter-spacing: -.02em; }
+  .sub { margin: 2px 0 0; color: var(--muted); }
+  .badge {
+    display: inline-block; vertical-align: middle; margin-left: 8px; padding: 2px 9px;
+    border-radius: 999px; font-size: 12px; font-weight: 800; letter-spacing: .08em;
+    color: #1f1300; background: #f59e0b;
+  }
+  .badge[hidden] { display: none; }
+
+  /* ---- How it works ---------------------------------------------------- */
+  .steps {
+    list-style: none; margin: 0 0 18px; padding: 0;
+    display: grid; gap: 10px; grid-template-columns: repeat(3, 1fr);
+  }
+  .steps li {
+    display: flex; gap: 10px; align-items: flex-start;
+    padding: 12px 14px; border-radius: 14px; font-size: 14px; color: var(--muted);
+    background: var(--card); border: 1px solid var(--card-border);
+  }
+  .steps b { color: var(--text); }
+  .num {
+    flex: none; display: grid; place-items: center;
+    width: 24px; height: 24px; border-radius: 50%;
+    font-size: 13px; font-weight: 700; color: var(--on-accent);
+    background: linear-gradient(145deg, var(--accent), var(--accent-2));
+  }
+
+  /* ---- Cards ----------------------------------------------------------- */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: 20px;
+    padding: 22px;
+    margin-bottom: 16px;
+    box-shadow: var(--shadow);
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+  }
+  h2 {
+    margin: 0 0 14px; font-size: 12px; font-weight: 700; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .08em;
+  }
+  label { display: block; font-weight: 600; margin-bottom: 6px; }
+  .field-gap { margin-top: 16px; }
+  .hint { margin: 8px 0 0; font-size: 13px; color: var(--muted); }
+  .dest { color: var(--ok); font-weight: 500; }
+  .dest b { font-weight: 700; }
+
+  input[type=text], select {
+    width: 100%; padding: 11px 13px; font: inherit; color: var(--text);
+    background: var(--field); border: 1px solid var(--field-border); border-radius: 12px;
+    transition: border-color .15s ease, box-shadow .15s ease;
+  }
+  input[type=text]::placeholder { color: var(--muted); opacity: .8; }
+  input[type=text]:focus, select:focus {
+    outline: none; border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft);
+  }
+  select {
+    -webkit-appearance: none; appearance: none; padding-right: 38px; cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238a8fa8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 12px center; background-size: 18px;
+  }
+  select option { color: #14162a; background: #ffffff; }
+
+  /* ---- Buttons --------------------------------------------------------- */
+  .btn {
+    font: inherit; font-weight: 600; padding: 10px 18px; cursor: pointer;
+    color: var(--accent); background: var(--accent-soft);
+    border: 1px solid transparent; border-radius: 12px;
+    transition: transform .15s ease, filter .15s ease;
+  }
+  .btn:hover { filter: brightness(1.08); }
+  .btn:active { transform: scale(.97); }
+  .btn:focus-visible { outline: 3px solid var(--accent-soft); outline-offset: 2px; }
+  .btn.primary {
+    color: var(--on-accent);
+    background: linear-gradient(145deg, var(--accent), var(--accent-2));
+    box-shadow: 0 6px 16px -6px var(--accent-glow);
+  }
+
+  /* ---- Big mic button -------------------------------------------------- */
+  .mic-card { text-align: center; padding: 34px 22px 26px; }
+  #mic {
+    display: inline-flex; flex-direction: column; align-items: center; gap: 16px;
+    padding: 6px; border: 0; background: none; cursor: pointer;
+    font: inherit; font-size: 18px; font-weight: 700; color: var(--text);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .mic-circle {
+    position: relative; display: grid; place-items: center;
+    width: 132px; height: 132px; border-radius: 50%; color: var(--on-accent);
+    background: linear-gradient(145deg, var(--accent), var(--accent-2));
+    box-shadow: 0 14px 34px -8px var(--accent-glow), inset 0 1px 0 rgba(255, 255, 255, .28);
+    transition: transform .2s ease, box-shadow .2s ease;
+  }
+  .mic-circle svg { width: 50px; height: 50px; }
+  #mic:hover .mic-circle {
+    transform: translateY(-2px) scale(1.03);
+    box-shadow: 0 20px 42px -8px var(--accent-glow), inset 0 1px 0 rgba(255, 255, 255, .28);
+  }
+  #mic:active .mic-circle { transform: scale(.96); }
+  #mic:focus-visible { outline: none; }
+  #mic:focus-visible .mic-circle { outline: 4px solid var(--accent-soft); outline-offset: 6px; }
+
+  #mic.on .mic-circle {
+    background: linear-gradient(145deg, var(--live), var(--live-2));
+    box-shadow: 0 14px 34px -8px var(--live-glow), inset 0 1px 0 rgba(255, 255, 255, .28);
+  }
+  /* Rings spreading out from the button while the mic is on */
+  #mic.on .mic-circle::before,
+  #mic.on .mic-circle::after {
+    content: ""; position: absolute; inset: 0; border-radius: 50%;
+    border: 2px solid var(--live);
+    animation: ripple 2.2s ease-out infinite;
+  }
+  #mic.on .mic-circle::after { animation-delay: 1.1s; }
+  @keyframes ripple {
+    from { transform: scale(1); opacity: .55; }
+    to   { transform: scale(1.55); opacity: 0; }
+  }
+  #mic:disabled { cursor: default; opacity: .45; }
+  #mic:disabled .mic-circle { transform: none; }
+
+  .status {
+    display: inline-flex; gap: 8px; align-items: center; max-width: 100%;
+    margin-top: 18px; padding: 7px 14px; border-radius: 14px;
+    font-size: 14px; color: var(--muted); text-align: left;
+    background: var(--field); border: 1px solid var(--field-border);
+  }
+  .status[data-mode="live"] { color: var(--live); background: var(--live-soft); border-color: transparent; }
+  .status[data-mode="error"] { color: var(--warn); background: var(--warn-soft); border-color: transparent; }
+  .dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: currentColor; opacity: .7; }
+  .dot.live { opacity: 1; animation: blink 1.2s ease-in-out infinite; }
+  @keyframes blink { 50% { opacity: .25; } }
+  .err { color: var(--warn); }
+
+  #hearing {
+    max-width: 520px; min-height: 54px; margin: 18px auto 0; padding: 14px 16px;
+    border-radius: 14px; font-size: 16px; color: var(--text);
+    background: var(--field); border: 1px dashed var(--field-border);
+  }
+  #hearing:empty::before { content: "Your words show up here while you talk"; color: var(--muted); }
+
+  /* ---- Toggle switch --------------------------------------------------- */
+  .switch { display: flex; gap: 12px; align-items: center; margin: 16px 0 0; font-weight: 500; cursor: pointer; }
+  .switch input {
+    -webkit-appearance: none; appearance: none; flex: none; position: relative;
+    width: 42px; height: 24px; margin: 0; border-radius: 999px; cursor: pointer;
+    background: var(--field-border); transition: background .2s ease;
+  }
+  .switch input::after {
+    content: ""; position: absolute; top: 3px; left: 3px;
+    width: 18px; height: 18px; border-radius: 50%; background: #ffffff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .25); transition: transform .2s ease;
+  }
+  .switch input:checked { background: linear-gradient(145deg, var(--accent), var(--accent-2)); }
+  .switch input:checked::after { transform: translateX(18px); }
+  .switch input:focus-visible { outline: 3px solid var(--accent-soft); outline-offset: 2px; }
+
+  /* ---- Chat log -------------------------------------------------------- */
+  #log { list-style: none; margin: 0; padding: 0; max-height: 320px; overflow-y: auto; }
+  #log li {
+    display: flex; gap: 12px; align-items: baseline;
+    padding: 10px 12px; margin-bottom: 6px; border-radius: 12px;
+    background: var(--field); animation: slide-in .25s ease-out;
+  }
+  @keyframes slide-in { from { opacity: 0; transform: translateY(-4px); } }
+  #log time { flex: none; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  #log span { overflow-wrap: anywhere; }
+  #log .failed span { color: var(--warn); }
+  #log li.empty { display: block; background: none; padding: 4px 0; color: var(--muted); animation: none; }
+  .send-row { display: flex; gap: 8px; margin-top: 12px; }
+  .send-row input { flex: 1; min-width: 0; }
+
+  /* ---- Banners --------------------------------------------------------- */
+  .banner {
+    padding: 14px 16px; margin-bottom: 16px; border-radius: 16px;
+    color: var(--warn); background: var(--warn-soft);
+  }
+  .banner.info { color: var(--text); background: var(--accent-soft); }
+  .banner .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .banner .row input { flex: 1 1 220px; }
+
+  /* ---- How-to guide ---------------------------------------------------- */
+  .guide { font-size: 14px; }
+  .guide h2 + h3 { margin-top: 0; }
+  .guide h3 { margin: 20px 0 8px; font-size: 15px; font-weight: 700; }
+  .guide p { margin: 0 0 8px; color: var(--muted); }
+  .guide ul, .guide ol { margin: 0 0 8px; padding-left: 20px; }
+  .guide li { margin-bottom: 6px; color: var(--muted); }
+  .guide ol li::marker { color: var(--accent); font-weight: 700; }
+  .guide b { color: var(--text); }
+  .menu { display: grid; grid-template-columns: auto 1fr; gap: 8px 10px; margin: 0; align-items: baseline; }
+  .menu dt {
+    font-size: 12px; font-weight: 700; white-space: nowrap; text-align: center;
+    padding: 3px 8px; border-radius: 7px; color: var(--accent); background: var(--accent-soft);
+  }
+  .menu dd { margin: 0; color: var(--muted); }
+  .faq { margin: 0; }
+  .faq dt { font-weight: 600; }
+  .faq dd { margin: 2px 0 10px; color: var(--muted); }
+  .tip { margin-top: 18px; padding: 12px 14px; border-radius: 14px; color: var(--warn); background: var(--warn-soft); }
+  .guide .tip b, .guide .tip li { color: inherit; }
+  .guide .tip ul { margin: 6px 0 0; }
+
+  footer { margin-top: 26px; font-size: 13px; color: var(--muted); text-align: center; }
+  footer p { margin: 0 0 6px; }
+
+  @media (max-width: 640px) {
+    .page { padding-top: 24px; }
+    .steps { grid-template-columns: 1fr; }
+    .mic-circle { width: 116px; height: 116px; }
+    .mic-circle svg { width: 44px; height: 44px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="top">
+    <div class="logo" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><path d="M12 18v4"/></svg>
+    </div>
+    <div>
+      <h1>Voice to SL <span id="testBadge" class="badge" hidden>TEST</span></h1>
+      <p class="sub">Talk into your microphone and your words appear in Second Life local chat.</p>
+    </div>
+  </header>
+
+  <div class="layout">
+  <main class="app">
+  <ol class="steps">
+    <li><span class="num">1</span><span>Wear your Voice to Chat prim in Second Life.</span></li>
+    <li><span class="num">2</span><span>Click the link it gives you in chat. This page opens with your address filled in.</span></li>
+    <li><span class="num">3</span><span>Press <b>Turn On Mic</b> and talk. Each sentence is posted when you pause.</span></li>
+  </ol>
+
+  <div id="inViewer" class="banner" hidden>
+    <b>This is the Second Life viewer's built-in browser, which can't hear your microphone.</b>
+    Copy this link and open it in Google Chrome or Microsoft Edge:
+    <div class="row">
+      <input id="viewerLink" type="text" readonly>
+      <button id="copyLink" class="btn" type="button">Copy</button>
+    </div>
+  </div>
+
+  <div id="unsupported" class="banner" hidden>
+    This browser can't turn speech into text. Open this page in <b>Google Chrome</b> or <b>Microsoft Edge</b>.
+  </div>
+
+  <div id="handedOff" class="banner info" hidden>
+    Your other Voice to SL tab is already listening and has switched to the new address. You can close this tab.
+  </div>
+
+  <div id="confirmLink" class="banner info" hidden>
+    <b>Use this prim?</b> This link is for a Voice to Chat prim worn by <b id="confirmWho"></b>.
+    Everything you say will be sent to it, so only continue if the link came from your own prim.
+    <div class="row">
+      <button id="confirmYes" class="btn primary" type="button">Use this prim</button>
+      <button id="confirmNo" class="btn" type="button">Ignore</button>
+    </div>
+  </div>
+
+  <section class="card mic-card">
+    <button id="mic" type="button" aria-pressed="false">
+      <span class="mic-circle">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><path d="M12 18v4"/></svg>
+      </span>
+      <span id="micLabel">Turn On Mic</span>
+    </button>
+    <div>
+      <div id="status" class="status"><span id="dot" class="dot"></span><span id="statusText">Not listening</span></div>
+    </div>
+    <p id="hearing" aria-live="polite"></p>
+  </section>
+
+  <section class="card">
+    <h2>Settings</h2>
+    <label for="url">Prim address</label>
+    <input id="url" type="text" spellcheck="false" autocomplete="off"
+           placeholder="Filled in by the link from your prim, or paste it here">
+    <p id="dest" class="hint dest" hidden>&check; Sending to the prim worn by <b id="destWho"></b>.</p>
+    <p class="hint">When you change regions your prim gives you a new link. Click it, and a tab
+      that's already listening switches to the new address by itself.
+      Touch the prim &rarr; <b>Get Link</b> to see the link again.</p>
+
+    <label for="lang" class="field-gap">Language</label>
+    <select id="lang">
+      <option value="en-US">English (US)</option>
+      <option value="en-GB">English (UK)</option>
+      <option value="en-AU">English (Australia)</option>
+      <option value="es-ES">Español (España)</option>
+      <option value="es-MX">Español (México)</option>
+      <option value="fr-FR">Français</option>
+      <option value="de-DE">Deutsch</option>
+      <option value="it-IT">Italiano</option>
+      <option value="pt-BR">Português (Brasil)</option>
+      <option value="pt-PT">Português (Portugal)</option>
+      <option value="nl-NL">Nederlands</option>
+      <option value="pl-PL">Polski</option>
+      <option value="ru-RU">Русский</option>
+      <option value="tr-TR">Türkçe</option>
+      <option value="ja-JP">日本語</option>
+      <option value="ko-KR">한국어</option>
+      <option value="zh-CN">中文 (普通话)</option>
+    </select>
+    <label class="switch"><input id="cap" type="checkbox" checked> Start each line with a capital letter</label>
+  </section>
+
+  <section class="card">
+    <h2>Sent to chat</h2>
+    <ul id="log"><li class="empty">Nothing yet. Your sentences will be listed here.</li></ul>
+    <form id="testForm" class="send-row">
+      <input id="testText" type="text" placeholder="Type a test message&hellip;">
+      <button class="btn primary" type="submit">Send</button>
+    </form>
+  </section>
+  </main>
+
+  <aside class="card guide" aria-labelledby="guideTitle">
+    <h2 id="guideTitle">How to use</h2>
+
+    <h3>What you need</h3>
+    <ul>
+      <li>A microphone</li>
+      <li><b>Google Chrome</b> or <b>Microsoft Edge</b>. Firefox, Brave and Opera won't work.</li>
+    </ul>
+
+    <h3>Getting started</h3>
+    <ol>
+      <li><b>Wear</b> the Voice to Chat prim (right-click it &rarr; Wear or Add).</li>
+      <li>A pop-up and a chat message give you a link. <b>Click it.</b> If it opens inside the
+        Second Life viewer, copy the link the page shows into Chrome or Edge.</li>
+      <li>The first time, the page asks <b>Use this prim?</b> and shows your name. Click <b>Use this prim</b>.</li>
+      <li>Press <b>Turn On Mic</b> and allow the microphone.</li>
+      <li>Talk! Each sentence appears in chat when you pause.</li>
+    </ol>
+    <p>Keep this page open while you play. It can sit behind the viewer, but don't close it.</p>
+
+    <h3>After a teleport</h3>
+    <p>In a new region the prim gives you a new link. Click it, and your open page switches over
+      by itself. You can close the extra tab.</p>
+
+    <h3>Prim menu (touch the prim)</h3>
+    <dl class="menu">
+      <dt>Shout 100m</dt><dd>Your lines reach 100 m (the default)</dd>
+      <dt>Range 50m</dt><dd>Your lines reach 50 m (people in the same region only)</dd>
+      <dt>Say 20m</dt><dd>Normal chat range</dd>
+      <dt>Set Name</dt><dd>Choose the name shown in chat, using plain letters and numbers.
+        Type <b>auto</b> to go back to normal.</dd>
+      <dt>Turn On / Off</dt><dd>Pause it without taking it off</dd>
+      <dt>Get Link</dt><dd>Shows your link again</dd>
+      <dt>New Link</dt><dd>Makes a new link. Old links stop working.</dd>
+    </dl>
+
+    <h3>Troubleshooting</h3>
+    <dl class="faq">
+      <dt>Nothing shows in chat</dt>
+      <dd>Touch the prim &rarr; <b>Get Link</b> and click the link again. Also check it's turned on.</dd>
+      <dt>"Microphone blocked"</dt>
+      <dd>Click the icon at the left of the browser's address bar, allow the microphone, then press
+        <b>Turn On Mic</b> again.</dd>
+      <dt>Your name shows as ?????</dt>
+      <dd>Touch the prim &rarr; <b>Set Name</b> and type a name using plain letters.</dd>
+      <dt>It stops working on some land</dt>
+      <dd>Scripts are switched off on no-script land.</dd>
+    </dl>
+
+    <div class="tip">
+      <b>Keep it safe</b>
+      <ul>
+        <li>Never share your link. Anyone who has it can post in chat as you. If you share it by
+          accident, touch the prim &rarr; <b>New Link</b>.</li>
+        <li>Only click <b>Use this prim</b> for links from your own prim.</li>
+      </ul>
+    </div>
+  </aside>
+  </div>
+
+  <footer>
+    <p>Your browser's own speech service turns speech into text (Google in Chrome, Microsoft in Edge).
+      The text then goes straight from your browser to your prim. This website never receives it.</p>
+    <p>Not affiliated with Linden Lab.</p>
+  </footer>
+</div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const urlBox = $('url'), langBox = $('lang'), capBox = $('cap'), micBtn = $('mic');
+  const log = $('log'), hearing = $('hearing');
+
+  // The live site and test copies share one web origin (webdev0486.github.io),
+  // so each keeps its own saved settings and tab messages. Copies that aren't
+  // the live site show a TEST badge.
+  const site = location.pathname.split('/')[1] || '';
+  const isLive = site === 'voice-to-sl';
+  const KEY = isLive ? 'voice2sl' : 'voice2sl@' + site;
+  if (!isLive) {
+    $('testBadge').hidden = false;
+    document.title += ' (TEST)';
+  }
+
+  // Settings are remembered between visits when the browser allows it.
+  const store = {
+    get(k, fallback) {
+      try { const v = localStorage.getItem(KEY + '.' + k); return v === null ? fallback : v; }
+      catch (e) { return fallback; }
+    },
+    set(k, v) {
+      try { localStorage.setItem(KEY + '.' + k, v); } catch (e) {}
+    }
+  };
+
+  // ---- Prim address ------------------------------------------------------
+  // Only Second Life addresses are accepted, so a doctored link can't send
+  // someone's speech to any other server.
+  function isSlAddress(text) {
+    try {
+      const u = new URL(text);
+      return u.protocol === 'https:' && /\.(secondlife\.io|lindenlab\.com)$/i.test(u.hostname);
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // Finds the prim address in a link from the prim ("...#addr=..."),
+  // a whole pasted chat line, or a bare address.
+  function addressFrom(text) {
+    let found = '';
+    const param = text.match(/[#?&]addr=([^&\s]+)/);
+    if (param) {
+      try { found = decodeURIComponent(param[1]); } catch (e) {}
+    } else {
+      const raw = text.match(/https?:\/\/[^\s"'<>]+/);
+      if (raw) found = raw[0];
+    }
+    return isSlAddress(found) ? found : '';
+  }
+
+  function currentUrl() {
+    return addressFrom(urlBox.value);
+  }
+
+  function setAddress(url, who) {
+    urlBox.value = url;
+    store.set('url', url);
+    store.set('who', who || '');
+    showWho(who);
+  }
+
+  // Shows whose prim the speech goes to, when the link said.
+  function showWho(who) {
+    $('destWho').textContent = who || '';
+    $('dest').hidden = !who;
+  }
+
+  function addressProblem() {
+    return urlBox.value.trim() ? 'not a Second Life prim address' : 'no prim address';
+  }
+
+  urlBox.addEventListener('input', () => {
+    store.set('url', urlBox.value);
+    store.set('who', '');
+    showWho('');
+  });
+  urlBox.addEventListener('change', () => {
+    const url = currentUrl();
+    if (url) setAddress(url);
+  });
+  capBox.addEventListener('change', () => store.set('cap', capBox.checked ? '1' : '0'));
+
+  // ---- Chat log ----------------------------------------------------------
+  function addLog(text) {
+    const empty = log.querySelector('.empty');
+    if (empty) empty.remove();
+    const li = document.createElement('li');
+    const time = document.createElement('time');
+    time.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const span = document.createElement('span');
+    span.textContent = text;
+    li.append(time, span);
+    log.prepend(li);
+    while (log.children.length > 100) log.lastChild.remove();
+    return li;
+  }
+
+  function markFailed(li, why) {
+    li.classList.add('failed');
+    li.querySelector('span').textContent += ' — not sent (' + why + ')';
+  }
+
+  // ---- Sending to the prim -----------------------------------------------
+  let queue = Promise.resolve();   // keeps lines in the order they were spoken
+
+  function send(raw) {
+    let text = raw.trim().replace(/\s+/g, ' ');
+    if (!text) return;
+    if (capBox.checked) text = text.charAt(0).toUpperCase() + text.slice(1);
+    const item = addLog(text);
+    const url = currentUrl();
+    if (!url) { markFailed(item, addressProblem()); return; }
+    // Second Life can't add browser (CORS) headers to its reply, so the reply
+    // is unreadable here; a network failure still rejects, which we can show.
+    queue = queue.then(() =>
+      fetch(url, { method: 'POST', mode: 'no-cors', body: text })
+        .catch(() => markFailed(item, "couldn't reach the prim"))
+    );
+  }
+
+  $('testForm').addEventListener('submit', e => {
+    e.preventDefault();
+    send($('testText').value);
+    $('testText').value = '';
+  });
+
+  // ---- Speech recognition ------------------------------------------------
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let rec = null, wanted = false, retryDelay = 250;
+
+  function setStatus(text, mode) {
+    $('statusText').textContent = text;
+    $('statusText').className = mode === 'error' ? 'err' : '';
+    $('dot').className = mode === 'live' ? 'dot live' : 'dot';
+    $('status').dataset.mode = mode || '';   // colours the status pill
+  }
+
+  // Only the label changes; the round mic icon stays.
+  function updateButton() {
+    $('micLabel').textContent = wanted ? 'Turn Off Mic' : 'Turn On Mic';
+    micBtn.setAttribute('aria-pressed', wanted ? 'true' : 'false');
+    micBtn.classList.toggle('on', wanted);
+  }
+
+  function stopListening(message, isError) {
+    wanted = false;
+    if (rec) rec.abort();
+    hearing.textContent = '';
+    updateButton();
+    setStatus(message || 'Not listening', isError ? 'error' : '');
+  }
+
+  function createRecognizer() {
+    const r = new SR();
+    r.continuous = true;
+    r.interimResults = true;
+
+    r.onstart = () => setStatus('Listening — just talk', 'live');
+
+    r.onresult = e => {
+      let interim = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const result = e.results[i];
+        if (result.isFinal) send(result[0].transcript);
+        else interim += result[0].transcript;
+      }
+      hearing.textContent = interim;
+    };
+
+    r.onerror = e => {
+      switch (e.error) {
+        case 'no-speech':
+        case 'aborted':
+          break;   // normal; onend starts it again
+        case 'not-allowed':
+        case 'service-not-allowed':
+          stopListening('Microphone blocked — click the icon at the left of the address bar, allow the microphone, then press Turn On Mic.', true);
+          break;
+        case 'audio-capture':
+          stopListening('No microphone found. Plug one in and press Turn On Mic.', true);
+          break;
+        case 'language-not-supported':
+          stopListening("That language isn't supported here — pick another one.", true);
+          break;
+        case 'network':
+          retryDelay = 3000;
+          setStatus("Can't reach the speech service, retrying… (needs internet; Brave and Opera can't do speech, use Chrome or Edge)", 'error');
+          break;
+        default:
+          retryDelay = 1000;
+          setStatus('Speech error: ' + e.error + ' — retrying…', 'error');
+      }
+    };
+
+    // The browser ends a session after a pause or about a minute; keep going.
+    r.onend = () => {
+      hearing.textContent = '';
+      if (!wanted) return;
+      const delay = retryDelay;
+      retryDelay = 250;
+      setTimeout(() => {
+        if (!wanted) return;
+        try { r.start(); } catch (err) { /* already running */ }
+      }, delay);
+    };
+    return r;
+  }
+
+  function startListening() {
+    if (!currentUrl()) {
+      setStatus('Click the link from your prim, or paste its address above.', 'error');
+      urlBox.focus();
+      return;
+    }
+    if (!rec) rec = createRecognizer();
+    rec.lang = langBox.value;
+    wanted = true;
+    updateButton();
+    setStatus('Starting…', '');
+    $('handedOff').hidden = true;
+    if (tabs) tabs.postMessage({ type: 'started' });   // only one tab listens at a time
+    try { rec.start(); } catch (err) { /* already running */ }
+  }
+
+  micBtn.addEventListener('click', () => wanted ? stopListening() : startListening());
+
+  langBox.addEventListener('change', () => {
+    store.set('lang', langBox.value);
+    if (wanted && rec) {
+      rec.lang = langBox.value;
+      rec.stop();   // onend restarts it in the new language
+    }
+  });
+
+  // ---- Several tabs ------------------------------------------------------
+  // Each new link from the prim opens another tab. A tab that's already
+  // listening takes over the new address, so speech is never sent twice.
+  const tabs = 'BroadcastChannel' in window ? new BroadcastChannel(KEY) : null;
+  if (tabs) {
+    tabs.onmessage = e => {
+      const msg = e.data || {};
+      // Only sent for a link from the prim this browser already uses, or one
+      // the person just approved, so it's safe to switch without asking.
+      if (msg.type === 'address' && isSlAddress(msg.url)) {
+        setAddress(msg.url, msg.who);
+        if (wanted) tabs.postMessage({ type: 'taken' });
+      } else if (msg.type === 'taken') {
+        $('handedOff').hidden = false;
+      } else if (msg.type === 'started' && wanted) {
+        stopListening('Listening moved to another tab.');
+      }
+    };
+  }
+
+  // ---- Links from the prim -----------------------------------------------
+  // A link carries the prim's address, a private id the prim made up, and
+  // the wearer's name. A link from the prim this browser already uses
+  // switches over by itself (the teleport case). A link from any other prim
+  // needs an OK first, so someone else's link can't quietly take your speech.
+  function readLink(hash) {
+    const param = name => {
+      const m = hash.match(new RegExp('[#&]' + name + '=([^&]*)'));
+      try { return m ? decodeURIComponent(m[1]) : ''; } catch (e) { return ''; }
+    };
+    return { url: addressFrom(hash), id: param('id'), who: param('who').slice(0, 64) };
+  }
+
+  function useLink(link) {
+    if (link.id) store.set('primId', link.id);
+    setAddress(link.url, link.who);
+    if (tabs) tabs.postMessage({ type: 'address', url: link.url, who: link.who });
+  }
+
+  function askAboutLink(link) {
+    $('confirmWho').textContent = link.who || 'someone (no name given)';
+    $('confirmLink').hidden = false;
+    $('confirmYes').onclick = () => { $('confirmLink').hidden = true; useLink(link); };
+    $('confirmNo').onclick = () => { $('confirmLink').hidden = true; };
+  }
+
+  // ---- Start up ----------------------------------------------------------
+  const linkHash = location.hash;
+  if (linkHash) history.replaceState(null, '', location.pathname + location.search);
+  urlBox.value = store.get('url', '');
+  showWho(store.get('who', ''));
+
+  const fromLink = readLink(linkHash);
+  if (fromLink.url) {
+    if (fromLink.id && fromLink.id === store.get('primId', '')) useLink(fromLink);
+    else askAboutLink(fromLink);
+  }
+
+  const savedLang = store.get('lang', navigator.language);
+  langBox.value = [...langBox.options].some(o => o.value === savedLang) ? savedLang : 'en-US';
+  capBox.checked = store.get('cap', '1') === '1';
+
+  if (!SR) {
+    $('unsupported').hidden = false;
+    micBtn.disabled = true;
+  }
+
+  // The viewer's built-in browser has no speech recognition; point people
+  // to a real browser with their link ready to copy.
+  if (/SecondLife|Second Life|Firestorm/i.test(navigator.userAgent)) {
+    const link = location.origin + location.pathname +
+      (linkHash || (currentUrl() ? '#addr=' + encodeURIComponent(currentUrl()) : ''));
+    $('viewerLink').value = link;
+    $('inViewer').hidden = false;
+    $('unsupported').hidden = true;
+    $('confirmLink').hidden = true;
+    $('copyLink').addEventListener('click', () => {
+      $('viewerLink').select();
+      const done = () => { $('copyLink').textContent = 'Copied'; };
+      if (navigator.clipboard) navigator.clipboard.writeText(link).then(done, () => document.execCommand('copy') && done());
+      else if (document.execCommand('copy')) done();
+    });
+  }
+})();
+</script>
+</body>
+</html>
