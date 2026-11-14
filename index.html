@@ -302,6 +302,15 @@
     gap: 8px; align-items: center; margin-top: 12px;
   }
   .fix-arrow { color: var(--muted); }
+  .fix-say { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-top: 12px; }
+  .fix-say .btn { display: inline-flex; gap: 8px; align-items: center; }
+  .fix-say .btn svg { width: 18px; height: 18px; }
+  .fix-say .btn.on {
+    color: var(--on-accent); background: linear-gradient(145deg, var(--live), var(--live-2));
+    box-shadow: 0 6px 16px -6px var(--live-glow);
+  }
+  .fix-say .btn[hidden] { display: none; }
+  #fixStatus { flex: 1 1 200px; margin: 0; }
   @media (max-width: 480px) {
     .fix-row { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
     .fix-row .btn { grid-column: 1 / -1; }
@@ -477,9 +486,17 @@
 
   <section class="card">
     <h2>My word fixes</h2>
-    <p class="hint intro">Does the mic keep getting a word wrong for you? Add it here and it's fixed before it
-      reaches chat. Handy for names, Second Life words, and words your accent makes hard to hear.</p>
+    <p class="hint intro">Does the mic keep getting a word wrong for you? Click <b>Say the word</b> and say it, so
+      the page learns how the mic hears it. Then type how it should be spelled and click <b>Add</b>. Handy for
+      names, Second Life words, and words your accent makes hard to hear.</p>
     <ul id="fixList"></ul>
+    <div class="fix-say">
+      <button id="fixSay" class="btn" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><path d="M12 18v4"/></svg>
+        <span id="fixSayLabel">Say the word</span>
+      </button>
+      <span id="fixStatus" class="hint" aria-live="polite">Click, then say the word the mic gets wrong.</span>
+    </div>
     <form id="fixForm" class="fix-row">
       <input id="fixFrom" type="text" maxlength="40" spellcheck="false" autocomplete="off"
              placeholder="It hears… (sheep)" aria-label="What the mic hears">
@@ -488,8 +505,8 @@
              placeholder="I meant… (ship)" aria-label="What you meant">
       <button class="btn primary" type="submit">Add</button>
     </form>
-    <p class="hint">Only changes what the mic hears, not what you type. Leave "I meant" empty to just remove
-      the word. Your fixes are saved in this browser.</p>
+    <p class="hint">You can also type in "It hears" yourself. Fixes only change what the mic hears, not what
+      you type. Leave "I meant" empty to just remove the word. Your fixes are saved in this browser.</p>
   </section>
 
   <section class="card">
@@ -1035,14 +1052,22 @@
     e.preventDefault();
     const from = $('fixFrom').value.trim().replace(/\s+/g, ' ');
     const to = $('fixTo').value.trim().replace(/\s+/g, ' ');
-    if (!from) { $('fixFrom').focus(); return; }
+    if (!from) {
+      $('fixStatus').textContent = 'First click Say the word, or type what the mic hears.';
+      $('fixFrom').focus();
+      return;
+    }
+    if (fixKey(from) === fixKey(to)) {
+      $('fixStatus').textContent = 'The mic already writes "' + from + '" right, so no fix is needed.';
+      return;
+    }
     fixes = fixes.filter(f => fixKey(f.from) !== fixKey(from));   // a new fix for the same word replaces the old one
     fixes.push({ from, to });
     while (fixes.length > MAX_FIXES) fixes.shift();
     saveFixes();
+    $('fixStatus').textContent = 'Added: ' + from + ' → ' + (to || '(removed)') + '.';
     $('fixFrom').value = '';
     $('fixTo').value = '';
-    $('fixFrom').focus();
   });
 
   buildFixes();
@@ -1216,6 +1241,7 @@
       urlBox.focus();
       return;
     }
+    cancelCapture(false);   // stop listening for a word fix first
     if (!rec) rec = createRecognizer();
     rec.lang = langBox.value;
     wanted = true;
@@ -1235,6 +1261,75 @@
       rec.lang = langBox.value;
       rec.stop();   // onend restarts it in the new language
     }
+  });
+
+  // ---- Say the word for a fix --------------------------------------------
+  // Listens once and puts what the mic heard into "It hears", so the fix
+  // matches exactly what the speech service writes. Normal listening pauses
+  // meanwhile, so the word isn't posted to chat, and comes back afterwards.
+  const sayBtn = $('fixSay'), sayLabel = $('fixSayLabel'), fixStatus = $('fixStatus');
+  let capture = null;
+  if (!SR) sayBtn.hidden = true;
+
+  // "Sheep." -> "sheep" (the six fix too, so it matches what fixes see)
+  function cleanHeard(text) {
+    text = text.replace(/^[\s.,!?;:"']+|[\s.,!?;:"']+$/g, '').replace(/\s+/g, ' ');
+    if (english()) text = text.replace(SEX, 'six');
+    return text.toLowerCase().slice(0, 40);
+  }
+
+  function endCapture(message, resume) {
+    capture = null;
+    sayBtn.classList.remove('on');
+    sayLabel.textContent = 'Say the word';
+    fixStatus.textContent = message;
+    if (resume && !wanted) startListening();
+  }
+
+  function cancelCapture(resume) {
+    const c = capture;
+    if (!c) return;
+    endCapture('', resume);    // capture is now null, so c's own events are ignored
+    try { c.abort(); } catch (err) {}
+  }
+
+  sayBtn.addEventListener('click', () => {
+    if (capture) { cancelCapture(capture.resume); return; }   // clicked again: cancel
+    const resume = wanted;
+    if (wanted) stopListening('Paused while you add a word fix…');
+    const c = capture = new SR();
+    c.resume = resume;
+    c.lang = langBox.value;
+    c.continuous = false;
+    c.interimResults = true;
+    let heard = '', failed = '';
+    sayBtn.classList.add('on');
+    sayLabel.textContent = 'Listening… (click to cancel)';
+    fixStatus.textContent = 'Say the word the mic gets wrong for you.';
+    $('fixFrom').value = '';
+    c.onresult = e => {
+      heard = [...e.results].map(r => r[0].transcript).join('');
+      $('fixFrom').value = cleanHeard(heard);
+    };
+    c.onerror = e => { failed = e.error; };
+    c.onend = () => {
+      if (capture !== c) return;
+      const word = cleanHeard(heard);
+      if (word) {
+        $('fixFrom').value = word;
+        endCapture('The mic heard "' + word + '". Now type how it should be spelled in "I meant", then click Add.', resume);
+        $('fixTo').focus();
+      } else if (failed === 'not-allowed' || failed === 'service-not-allowed') {
+        endCapture('Microphone blocked. Click the icon at the left of the address bar, allow the microphone, and try again.', resume);
+      } else {
+        endCapture("Didn't catch that. Click Say the word and try again.", resume);
+      }
+    };
+    // Give normal listening a moment to let go of the mic first.
+    setTimeout(() => {
+      if (capture !== c) return;
+      try { c.start(); } catch (err) { endCapture("Couldn't start the mic. Try again.", resume); }
+    }, resume ? 400 : 0);
   });
 
   // ---- Several tabs ------------------------------------------------------
