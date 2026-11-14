@@ -778,6 +778,29 @@
     return '';
   }
 
+  // Edge stars out the whole word ("you're an *******"), so only its length
+  // is left. Guess the likeliest word from the length and the words next to
+  // it; the swaps below then turn it into a clean word ("you're a jerk").
+  const STARS = /(?<![\p{L}\p{N}*])\*{3,}(?![\p{L}\p{N}*])/gu;
+  function guessStars(count, before, after) {
+    const p = ((before.match(/([\p{L}\p{N}']+)\s+$/u) || [])[1] || '').toLowerCase();
+    const n = ((after.match(/^\s+([\p{L}\p{N}']+)/u) || [])[1] || '').toLowerCase();
+    const insultSpot = INSULT.has(p);                       // "you ***", "a ***"
+    const endsInsult = !n || /^(and|or|but|too|lol|haha)$/.test(n);
+    switch (count) {
+      case 3: return 'ass';
+      case 4: return p === 'the' || /^(you|u|ya|off|this|that|it|up|around|with|him|her|them)$/.test(n) ||
+        /(?:give|gives|gave|giving|given)\s+a\s+$/i.test(before) ? 'fuck' : insultSpot ? 'dick' : 'shit';
+      case 5: return 'bitch';
+      case 6: return insultSpot ? 'fucker' : 'fucked';
+      case 7: return insultSpot && endsInsult ? 'asshole' : 'fucking';
+      case 8: return insultSpot && endsInsult ? 'asshole' : 'bullshit';
+      case 12: return 'motherfucker';
+      case 13: return 'motherfucking';
+    }
+    return '';   // left as stars, so it's removed
+  }
+
   const TOKEN = /([\p{L}\p{N}]*\*{2,}[\p{L}\p{N}*]*|[\p{L}\p{N}]+(?:'[\p{L}\p{N}]+)*'?)/u;
   // The word right before (step -1) or after (step 1) a word, if only a space is between.
   function near(parts, i, step) {
@@ -785,9 +808,12 @@
     return j > 0 && j < parts.length && parts[j] && /^\s+$/.test(parts[i + step]) ? parts[j].toLowerCase() : '';
   }
 
-  function cleanLine(text) {
-    let t = text.replace(/[‘’]/g, "'")
-      .replace(MASKED, m => { const w = unmask(m); return w ? matchCase(m, w) : m; })
+  function cleanLine(text, spoken) {
+    let t = text.replace(/[‘’]/g, "'");
+    if (spoken) {   // typed stars ("***") are left alone and removed
+      t = t.replace(STARS, (m, at, all) => guessStars(m.length, all.slice(0, at), all.slice(at + m.length)) || m);
+    }
+    t = t.replace(MASKED, m => { const w = unmask(m); return w ? matchCase(m, w) : m; })
       .replace(JOIN, (m, a, b) => JOINED.has((a + b).toLowerCase()) ? a + b : m);
     let removed = false;
     for (const [re, swap] of PHRASES) {
@@ -820,6 +846,9 @@
         parts[i] = '';
         removed = true;
         if (!next && (prev === 'a' || prev === 'an' || prev === 'the')) parts[i - 2] = '';
+        else if (next && (prev === 'a' || prev === 'an')) {   // "a fucking idiot" -> "an idiot"
+          parts[i - 2] = matchCase(parts[i - 2], /^[aeiou]/i.test(next) ? 'an' : 'a');
+        }
       }
     }
     t = parts.join('');
@@ -838,7 +867,7 @@
   function tidy(text, spoken) {
     if (!english()) return text;
     if (spoken) text = text.replace(SEX, m => matchCase(m, 'six'));
-    return cleanBox.checked ? cleanLine(text) : text;
+    return cleanBox.checked ? cleanLine(text, spoken) : text;
   }
 
   // ---- Sending to the prim -----------------------------------------------
