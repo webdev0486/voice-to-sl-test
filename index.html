@@ -413,7 +413,7 @@
       Touch the prim &rarr; <b>Get Link</b> to see the link again.</p>
 
     <label for="lang" class="field-gap">Language</label>
-    <select id="lang">
+    <select id="lang" aria-describedby="langHint">
       <option value="en-US">English (US)</option>
       <option value="en-GB">English (UK)</option>
       <option value="en-AU">English (Australia)</option>
@@ -439,6 +439,8 @@
       <option value="ko-KR">한국어</option>
       <option value="zh-CN">中文 (普通话)</option>
     </select>
+    <p id="langHint" class="hint">Pick the language you'll speak. For English, choose the country closest
+      to your accent, so fewer words get misheard. The bad-word filter only works with the English choices.</p>
     <label class="switch"><input id="cap" type="checkbox" checked> Start each line with a capital letter</label>
     <label class="switch"><input id="clean" type="checkbox" checked> Hide bad words</label>
     <p class="hint switch-hint">Swear words and rude, sexual, violent or drug words are taken out of
