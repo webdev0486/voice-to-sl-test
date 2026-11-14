@@ -72,6 +72,8 @@
     font: 15px/1.55 "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
     -webkit-font-smoothing: antialiased;
   }
+  a { color: var(--accent); text-underline-offset: 2px; }
+  a:hover { text-decoration-thickness: 2px; }
   .page { max-width: 1140px; margin: 0 auto; padding: 36px 16px 56px; }
   .layout { display: grid; gap: 0 22px; grid-template-columns: minmax(0, 1fr); }
   .app, .guide, .side { width: 100%; max-width: 700px; margin-left: auto; margin-right: auto; }
@@ -590,6 +592,8 @@
       <dt>It stops working on some land</dt>
       <dd>Scripts are switched off on no-script land.</dd>
     </dl>
+    <p>Still stuck, found a bug, or have an idea? Email
+      <a class="contact-mail" data-user="dev.luv" data-domain="outlook.com">dev.luv [at] outlook.com</a>.</p>
 
     <div class="tip">
       <b>Keep it safe</b>
@@ -622,6 +626,8 @@
       <li><b>Talking tips</b> for clearer results, including help for people whose first language
         isn't English.</li>
       <li><b>Prim address</b> now sits at the top, above the mic button.</li>
+      <li><b>Contact.</b> Questions, bugs or ideas? Email
+        <a class="contact-mail" data-user="dev.luv" data-domain="outlook.com">dev.luv [at] outlook.com</a>.</li>
     </ul>
 
     <h3>November 13, 2026</h3>
@@ -647,6 +653,8 @@
   </div>
 
   <footer>
+    <p>Questions, problems or suggestions? Email
+      <a class="contact-mail" data-user="dev.luv" data-domain="outlook.com">dev.luv [at] outlook.com</a>.</p>
     <p>Your browser's own speech service turns speech into text (Google in Chrome, Microsoft in Edge).
       The text then goes straight from your browser to your prim. This website never receives it.</p>
     <p>Not affiliated with Linden Lab.</p>
@@ -662,6 +670,14 @@
   // The live site and test copies share one web origin (webdev0486.github.io),
   // so each keeps its own saved settings and tab messages. Copies that aren't
   // the live site show a TEST badge.
+  // The contact address is put together here, so simple spam robots that
+  // read the page's text can't pick it up.
+  document.querySelectorAll('.contact-mail').forEach(a => {
+    const address = a.dataset.user + '@' + a.dataset.domain;
+    a.href = 'mailto:' + address;
+    a.textContent = address;
+  });
+
   const site = location.pathname.split('/')[1] || '';
   const isLive = site === 'voice-to-sl';
   const KEY = isLive ? 'voice2sl' : 'voice2sl@' + site;
