@@ -281,6 +281,32 @@
   #log li.empty { display: block; background: none; padding: 4px 0; color: var(--muted); animation: none; }
   .send-row { display: flex; gap: 8px; margin-top: 12px; }
 
+  /* ---- My word fixes --------------------------------------------------- */
+  .hint.intro { margin: 0 0 4px; }
+  #fixList { list-style: none; margin: 12px 0 0; padding: 0; }
+  #fixList li {
+    display: flex; gap: 8px; align-items: center;
+    padding: 6px 6px 6px 12px; margin-bottom: 6px; border-radius: 12px; background: var(--field);
+  }
+  #fixList .fix-text { flex: 1; min-width: 0; overflow-wrap: anywhere; color: var(--muted); }
+  #fixList .fix-text b { font-weight: 600; color: var(--text); }
+  #fixList li.empty { display: block; padding: 0; background: none; color: var(--muted); font-size: 14px; }
+  .fix-remove {
+    flex: none; width: 32px; height: 32px; border: 0; border-radius: 9px; cursor: pointer;
+    font: inherit; font-size: 20px; line-height: 1; color: var(--muted); background: transparent;
+  }
+  .fix-remove:hover { color: var(--warn); background: var(--warn-soft); }
+  .fix-remove:focus-visible { outline: 3px solid var(--accent-soft); }
+  .fix-row {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto;
+    gap: 8px; align-items: center; margin-top: 12px;
+  }
+  .fix-arrow { color: var(--muted); }
+  @media (max-width: 480px) {
+    .fix-row { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
+    .fix-row .btn { grid-column: 1 / -1; }
+  }
+
   /* ---- Listening log (test site only) ---------------------------------- */
   #listenCard[hidden] { display: none; }
   #listenLog { list-style: none; margin: 0; padding: 0; max-height: 260px; overflow-y: auto; font-size: 13px; }
@@ -450,6 +476,23 @@
   </section>
 
   <section class="card">
+    <h2>My word fixes</h2>
+    <p class="hint intro">Does the mic keep getting a word wrong for you? Add it here and it's fixed before it
+      reaches chat. Handy for names, Second Life words, and words your accent makes hard to hear.</p>
+    <ul id="fixList"></ul>
+    <form id="fixForm" class="fix-row">
+      <input id="fixFrom" type="text" maxlength="40" spellcheck="false" autocomplete="off"
+             placeholder="It hears… (sheep)" aria-label="What the mic hears">
+      <span class="fix-arrow" aria-hidden="true">&rarr;</span>
+      <input id="fixTo" type="text" maxlength="40" spellcheck="false" autocomplete="off"
+             placeholder="I meant… (ship)" aria-label="What you meant">
+      <button class="btn primary" type="submit">Add</button>
+    </form>
+    <p class="hint">Only changes what the mic hears, not what you type. Leave "I meant" empty to just remove
+      the word. Your fixes are saved in this browser.</p>
+  </section>
+
+  <section class="card">
     <h2>Sent to chat</h2>
     <ul id="log"><li class="empty">Nothing yet. Your sentences will be listed here.</li></ul>
     <form id="testForm" class="send-row">
@@ -545,6 +588,8 @@
         words it already heard are now posted instead of lost, and it starts listening again faster.</li>
       <li><b>More English accents</b> under Language: Canada, India, Ireland, New Zealand, Philippines,
         Singapore and South Africa.</li>
+      <li><b>My word fixes.</b> Tell the page which words the mic keeps getting wrong for you, and it fixes
+        them before they reach chat.</li>
     </ul>
 
     <h3>November 13, 2026</h3>
@@ -561,6 +606,7 @@
       <li><b>Pause briefly</b> between sentences. Each sentence is posted when you pause.</li>
       <li>Under Settings, pick the <b>Language</b> that matches your accent, like English (US), (UK), (Canada) or (India).</li>
       <li><b>English isn't your first language?</b> Still pick an English option, and try a few to see which one understands you best.</li>
+      <li>Does the mic keep getting the same word wrong? Add it under <b>My word fixes</b>.</li>
       <li>Very fast or mumbled words can be misheard. Short words at the start of a sentence get missed most.</li>
       <li>Wear <b>headphones</b>, so the mic doesn't pick up Second Life music or voice chat.</li>
       <li>If it mishears you a lot, try the other browser: <b>Chrome</b> and <b>Edge</b> use different speech services.</li>
@@ -910,11 +956,97 @@
   // The mic often hears "six" as "sex"; the speech service can't tell them apart.
   const SEX = new RegExp(B + 'sex' + E, 'giu');
 
+  // Speech gets the six fix, then the person's own word fixes, then the
+  // bad-word filter, so a fix can never sneak a bad word into chat.
   function tidy(text, spoken) {
-    if (!english()) return text;
-    if (spoken) text = text.replace(SEX, m => matchCase(m, 'six'));
-    return cleanBox.checked ? cleanLine(text, spoken) : text;
+    const en = english();
+    if (spoken && en) text = text.replace(SEX, m => matchCase(m, 'six'));
+    if (spoken) text = applyFixes(text);
+    return en && cleanBox.checked ? cleanLine(text, spoken) : text;
   }
+
+  // ---- My word fixes -----------------------------------------------------
+  // Words the mic keeps getting wrong for this person ("sheep" -> "ship"),
+  // saved in this browser. Whole words only; longer ones are matched first.
+  const MAX_FIXES = 50;
+  const fixKey = s => s.trim().toLowerCase().replace(/\s+/g, ' ');
+  const escapeRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  let fixes = [], fixRe = null;
+  try { fixes = JSON.parse(store.get('fixes', '[]')); } catch (e) {}
+  if (!Array.isArray(fixes)) fixes = [];
+  fixes = fixes.filter(f => f && typeof f.from === 'string' && typeof f.to === 'string' && f.from.trim());
+
+  function buildFixes() {
+    const heard = fixes.map(f => fixKey(f.from)).sort((a, b) => b.length - a.length);
+    fixRe = heard.length
+      ? new RegExp(B + '(?:' + heard.map(h => escapeRe(h).replace(/ /g, '\\s+')).join('|') + ')' + E, 'giu')
+      : null;
+  }
+
+  function applyFixes(text) {
+    if (!fixRe) return text;
+    return text.replace(fixRe, m => {
+      const fix = fixes.find(f => fixKey(f.from) === fixKey(m));
+      return fix ? matchCase(m, fix.to) : m;
+    }).replace(/ {2,}/g, ' ');
+  }
+
+  function renderFixes() {
+    const list = $('fixList');
+    list.textContent = '';
+    if (!fixes.length) {
+      const li = document.createElement('li');
+      li.className = 'empty';
+      li.textContent = 'No fixes yet.';
+      list.append(li);
+      return;
+    }
+    for (const fix of fixes) {
+      const li = document.createElement('li');
+      const text = document.createElement('span');
+      text.className = 'fix-text';
+      const from = document.createElement('b');
+      from.textContent = fix.from;
+      const to = document.createElement('b');
+      to.textContent = fix.to || '(removed)';
+      text.append(from, ' → ', to);
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'fix-remove';
+      remove.textContent = '×';
+      remove.title = 'Remove this fix';
+      remove.setAttribute('aria-label', 'Remove the fix for ' + fix.from);
+      remove.addEventListener('click', () => {
+        fixes = fixes.filter(f => f !== fix);
+        saveFixes();
+      });
+      li.append(text, remove);
+      list.append(li);
+    }
+  }
+
+  function saveFixes() {
+    store.set('fixes', JSON.stringify(fixes));
+    buildFixes();
+    renderFixes();
+  }
+
+  $('fixForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const from = $('fixFrom').value.trim().replace(/\s+/g, ' ');
+    const to = $('fixTo').value.trim().replace(/\s+/g, ' ');
+    if (!from) { $('fixFrom').focus(); return; }
+    fixes = fixes.filter(f => fixKey(f.from) !== fixKey(from));   // a new fix for the same word replaces the old one
+    fixes.push({ from, to });
+    while (fixes.length > MAX_FIXES) fixes.shift();
+    saveFixes();
+    $('fixFrom').value = '';
+    $('fixTo').value = '';
+    $('fixFrom').focus();
+  });
+
+  buildFixes();
+  renderFixes();
 
   // ---- Sending to the prim -----------------------------------------------
   let queue = Promise.resolve();   // keeps lines in the order they were spoken
